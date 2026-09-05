@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: artisan-ai-backend
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: AI_PROVIDER
+        value: "groq"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: "llama-3.3-70b-versatile"
+      - key: GROQ_STT_MODEL
+        value: "whisper-large-v3"
+      - key: GROQ_API_BASE
+        value: "https://api.groq.com/openai/v1"
+      - key: CORS_ORIGINS
+        value: '["*"]'
