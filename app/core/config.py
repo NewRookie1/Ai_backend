@@ -6,7 +6,10 @@ class Settings(BaseSettings):
     APP_NAME: str = "Artisan AI Backend"
     DEBUG: bool = True
     
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/artisan_ai"
+    # Defaults to a local SQLite file so the service boots with zero
+    # configuration (e.g. fresh Render deploy without DATABASE_URL set).
+    # Set DATABASE_URL to a Postgres URL for shared/persistent storage.
+    DATABASE_URL: str = "sqlite:///./artisan_ai.db"
     SECRET_KEY: str = "your-secret-key-here"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60

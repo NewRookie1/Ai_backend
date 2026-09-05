@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
 from .core.config import settings
 from .core.database import engine, Base
 from .routers import auth, speech, translation, image, products, orders, voice, market
+
+logger = logging.getLogger("artisan_ai")
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -29,7 +32,13 @@ app.include_router(market.router)
 
 @app.on_event("startup")
 async def startup():
-    Base.metadata.create_all(bind=engine)
+    # Never let a DB outage kill the whole service: /health and the
+    # AI-only routes must stay up so the platform (Render) sees a live app.
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables ensured.")
+    except Exception as exc:
+        logger.warning("Database unavailable at startup, continuing: %s", exc)
 
 @app.get("/")
 async def root():

@@ -3,7 +3,9 @@ services:
     name: artisan-ai-backend
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    # Single uvicorn worker: fits the free-tier 512MB RAM and avoids
+    # SQLite write-lock contention when DATABASE_URL is not configured.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
