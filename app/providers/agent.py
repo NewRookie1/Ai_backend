@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 import openai
 import json
 from ..core.config import settings
+from .model_fallback import chat_create, text_models
 
 class AgentProvider:
     INTENT_PATTERNS = {
@@ -211,12 +212,13 @@ class AgentProvider:
                 lang_name = lang_map.get(user_language, user_language)
                 lang_instruction = f" Respond in {lang_name} language."
             
-            response = self.client.chat.completions.create(
-                model=settings.GROQ_MODEL,
+            response = chat_create(
+                self.client,
                 messages=[
                     {"role": "system", "content": f"You are a helpful assistant for Indian artisans. Be concise and friendly.{lang_instruction}"},
                     {"role": "user", "content": f"Intent: {intent}\nUser said: {text}\n\nProvide a brief, helpful response."},
                 ],
+                models=text_models(),
                 temperature=0.7,
                 max_tokens=256,
             )

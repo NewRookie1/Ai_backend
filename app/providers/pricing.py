@@ -3,6 +3,7 @@ import openai
 import json
 from datetime import datetime
 from ..core.config import settings
+from .model_fallback import chat_create, text_models
 
 class PricingProvider:
     def __init__(self):
@@ -47,12 +48,13 @@ Return JSON format:
 }}"""
         
         try:
-            response = self.client.chat.completions.create(
-                model=settings.GROQ_MODEL,
+            response = chat_create(
+                self.client,
                 messages=[
                     {"role": "system", "content": "You are an expert in Indian handicraft pricing. Return only valid JSON."},
                     {"role": "user", "content": prompt},
                 ],
+                models=text_models(),
                 temperature=0.7,
                 max_tokens=1024,
             )

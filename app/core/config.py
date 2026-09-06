@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "openai/gpt-oss-120b"
     # Vision-capable model for image analysis (auto-catalogue).
     GROQ_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
+    # Ordered fallbacks (comma-separated) when the primary ID is retired.
+    GROQ_TEXT_MODELS: str = "openai/gpt-oss-120b,openai/gpt-oss-20b,llama-3.1-8b-instant"
+    GROQ_VISION_MODELS: str = "meta-llama/llama-4-scout-17b-16e-instruct,qwen/qwen3.6-27b,qwen/qwen3.8-27b"
     GROQ_STT_MODEL: str = "whisper-large-v3"
     GROQ_API_BASE: str = "https://api.groq.com/openai/v1"
     

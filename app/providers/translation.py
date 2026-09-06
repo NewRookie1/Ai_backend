@@ -1,6 +1,7 @@
 from typing import Optional
 import openai
 from ..core.config import settings
+from .model_fallback import chat_create, text_models
 
 class TranslationProvider:
     def __init__(self):
@@ -30,12 +31,13 @@ class TranslationProvider:
         
         target_lang_name = lang_map.get(target_language, target_language)
         
-        response = self.client.chat.completions.create(
-            model=settings.GROQ_MODEL,
+        response = chat_create(
+            self.client,
             messages=[
                 {"role": "system", "content": f"Translate the following text to {target_lang_name}. Return only the translation, no explanations."},
                 {"role": "user", "content": text},
             ],
+            models=text_models(),
             temperature=0.3,
             max_tokens=1024,
         )

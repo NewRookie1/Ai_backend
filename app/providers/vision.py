@@ -3,6 +3,7 @@ import openai
 import base64
 import json
 from ..core.config import settings
+from .model_fallback import chat_create, vision_models
 
 class VisionProvider:
     def __init__(self):
@@ -32,8 +33,8 @@ class VisionProvider:
 Return ONLY the JSON, no other text."""
         
         try:
-            response = self.client.chat.completions.create(
-                model=settings.GROQ_VISION_MODEL,
+            response = chat_create(
+                self.client,
                 messages=[
                     {
                         "role": "user",
@@ -48,6 +49,7 @@ Return ONLY the JSON, no other text."""
                         ]
                     }
                 ],
+                models=vision_models(),
                 max_tokens=500,
             )
             
