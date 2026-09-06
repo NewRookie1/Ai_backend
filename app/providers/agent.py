@@ -108,13 +108,17 @@ class AgentProvider:
         }
     
     async def _normalize_text(self, text: str, source_language: str) -> str:
-        if source_language == "en":
+        if not source_language or source_language == "en":
             return text
-        
-        from .translation import TranslationProvider
-        translator = TranslationProvider()
-        result = await translator.translate(text, "en", source_language)
-        return result["translated_text"]
+
+        try:
+            from .translation import TranslationProvider
+            translator = TranslationProvider()
+            result = await translator.translate(text, "en", source_language)
+            return result.get("translated_text") or text
+        except Exception:
+            # Translation unavailable: match intents against the raw text.
+            return text
     
     def _detect_intent(self, text: str) -> dict:
         normalized = text.lower().strip()
@@ -234,4 +238,15 @@ class AgentProvider:
                 'HELP': 'I can help you with: scanning products, managing your catalog, checking orders, market analysis, and pricing.',
                 'UNKNOWN': 'I am not sure what you want. Can you tell me more?',
             }
-            return responses.get(intent, 'I am not sure what you want.')
+            fallback = responses.get(intent, 'I am not sure what you want.')
+            # The reply must be in the user's language even when the LLM
+            # is unreachable: translate the canned reply best-effort.
+            if user_language and user_language != "en":
+                try:
+                    from .translation import TranslationProvider
+                    translator = TranslationProvider()
+                    t = await translator.translate(fallback, user_language, "en")
+                    return t.get("translated_text") or fallback
+                except Exception:
+                    pass
+            return fallback
