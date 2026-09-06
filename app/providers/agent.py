@@ -128,13 +128,18 @@ class AgentProvider:
         
         for intent, patterns in self.INTENT_PATTERNS.items():
             for pattern in patterns:
+                # Ignore tiny patterns to avoid false hits inside long text.
+                if len(pattern) < 4:
+                    continue
                 if pattern in normalized:
                     score = len(pattern) / len(normalized)
                     if score > best_score:
                         best_score = score
                         best_intent = intent
         
-        if best_score < 0.3:
+        # Threshold kept low on purpose: natural sentences
+        # ("show my products and check new orders") dilute the ratio.
+        if best_score < 0.2:
             return {
                 "intent": "UNKNOWN",
                 "actions": [],
