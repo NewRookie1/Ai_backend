@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     
     AI_PROVIDER: str = "groq"
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    # Text/chat model for agent, pricing, translation.
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    # Vision-capable model for image analysis (auto-catalogue).
+    GROQ_VISION_MODEL: str = "meta-llama/llama-4-scout-17b-16e-instruct"
     GROQ_STT_MODEL: str = "whisper-large-v3"
     GROQ_API_BASE: str = "https://api.groq.com/openai/v1"
     

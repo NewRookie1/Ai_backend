@@ -33,7 +33,7 @@ Return ONLY the JSON, no other text."""
         
         try:
             response = self.client.chat.completions.create(
-                model=settings.GROQ_MODEL,
+                model=settings.GROQ_VISION_MODEL,
                 messages=[
                     {
                         "role": "user",
