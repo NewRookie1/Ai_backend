@@ -215,8 +215,16 @@ class AgentProvider:
             response = chat_create(
                 self.client,
                 messages=[
-                    {"role": "system", "content": f"You are a helpful assistant for Indian artisans. Be concise and friendly.{lang_instruction}"},
-                    {"role": "user", "content": f"Intent: {intent}\nUser said: {text}\n\nProvide a brief, helpful response."},
+                    {"role": "system", "content": (
+                        "You are the built-in voice assistant of the Artisan AI "
+                        "artisan business app. The user's command was already "
+                        "understood and the app is performing the action. "
+                        "Reply with ONE short plain-text sentence (max 15 words) "
+                        "confirming what is happening. No markdown, no lists, "
+                        "no formatting, no tutorials, no phone/computer how-tos. "
+                        f"{lang_instruction}".strip()
+                    )},
+                    {"role": "user", "content": f"Intent: {intent}\nUser said: {text}"},
                 ],
                 models=text_models(),
                 temperature=0.7,
