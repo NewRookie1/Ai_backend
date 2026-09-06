@@ -2,8 +2,25 @@ from typing import Optional
 import openai
 import base64
 import json
+import re
 from ..core.config import settings
 from .model_fallback import chat_create, vision_models
+
+def _parse_product_json(raw: str) -> dict:
+    """Extract the product JSON from a model reply.
+
+    Reasoning models often wrap the answer in <think> traces, markdown
+    fences, or prose. Strip all of that and decode the first {...} block.
+    Raises ValueError if no valid JSON object is found.
+    """
+    text = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+    text = re.sub(r"^```[a-zA-Z]*\s*", "", text).strip()
+    text = re.sub(r"\s*```$", "", text).strip()
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise ValueError("No JSON object in model reply")
+    return json.loads(text[start:end + 1])
+
 
 class VisionProvider:
     def __init__(self):
@@ -20,7 +37,7 @@ class VisionProvider:
     ) -> dict:
         image_base64 = base64.b64encode(image_content).decode('utf-8')
         
-        prompt = """Analyze this image and provide detailed product information in JSON format:
+        prompt = """Analyze this image and provide detailed product information as a JSON object with exactly these keys:
 {
     "product_name": "name of the product",
     "category": "category (Home Decor, Clothing, Jewelry, Art, Kitchen, Accessories, Furniture, Textiles, Other)",
@@ -30,7 +47,7 @@ class VisionProvider:
     "description": "detailed description",
     "tags": ["relevant", "tags"]
 }
-Return ONLY the JSON, no other text."""
+Output ONLY the JSON object. No markdown fences, no thinking, no analysis, no explanation, no other text."""
         
         try:
             response = chat_create(
@@ -53,13 +70,8 @@ Return ONLY the JSON, no other text."""
                 max_tokens=500,
             )
             
-            result = json.loads(response.choices[0].message.content)
-        except json.JSONDecodeError:
-            result = {
-                "product_name": "Unknown Product",
-                "category": "Other",
-                "description": response.choices[0].message.content if response else "Analysis failed",
-            }
+            raw = response.choices[0].message.content or ""
+            result = _parse_product_json(raw)
         except Exception as e:
             result = {
                 "product_name": "Unknown Product",
