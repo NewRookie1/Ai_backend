@@ -29,6 +29,11 @@ def vision_models() -> List[str]:
 
 
 def _is_model_not_found(exc: Exception) -> bool:
+    return is_model_not_found(exc)
+
+
+def is_model_not_found(exc: Exception) -> bool:
+    """True when the API reports an unknown/inaccessible model ID."""
     if getattr(exc, "status_code", None) == 404:
         return True
     try:

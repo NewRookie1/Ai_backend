@@ -1,10 +1,13 @@
 from typing import Optional
+import logging
 import openai
 import base64
 import json
 import re
 from ..core.config import settings
-from .model_fallback import chat_create, vision_models
+from .model_fallback import is_model_not_found, vision_models
+
+logger = logging.getLogger("artisan_ai.vision")
 
 def _parse_product_json(raw: str) -> dict:
     """Extract the product JSON from a model reply.
@@ -49,37 +52,47 @@ class VisionProvider:
 }
 Output ONLY the JSON object. No markdown fences, no thinking, no analysis, no explanation, no other text."""
         
-        try:
-            response = chat_create(
-                self.client,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{image_base64}"
+        # Walk the vision models: skip dead IDs AND models whose reply has
+        # no usable JSON (refusals, prose). First clean parse wins.
+        last_error = "no vision model available"
+        for model in vision_models():
+            try:
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{image_base64}"
+                                    }
                                 }
-                            }
-                        ]
-                    }
-                ],
-                models=vision_models(),
-                max_tokens=500,
-            )
-            
-            raw = response.choices[0].message.content or ""
-            result = _parse_product_json(raw)
-        except Exception as e:
-            result = {
-                "product_name": "Unknown Product",
-                "category": "Other",
-                "description": f"Analysis error: {str(e)}",
-            }
+                            ]
+                        }
+                    ],
+                    max_tokens=500,
+                )
+                raw = response.choices[0].message.content or ""
+                return _parse_product_json(raw)
+            except ValueError as e:
+                last_error = f"{model}: {e}"
+                logger.warning("Vision parse failed for %s", model)
+                continue
+            except Exception as e:
+                if not is_model_not_found(e):
+                    raise
+                last_error = f"{model}: not accessible"
+                logger.warning("Vision model not accessible: %s", model)
+                continue
         
-        return result
+        return {
+            "product_name": "Unknown Product",
+            "category": "Other",
+            "description": f"Analysis error: {last_error}",
+        }
     
     async def enhance(self, image_content: bytes) -> dict:
         return {
