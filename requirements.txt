@@ -24,3 +24,4 @@ onnxruntime>=1.17.0
 transformers>=4.38.0
 huggingface_hub>=0.20.0
 tokenizers>=0.15.0
+edge-tts>=7.0.0  # in-app voice (/api/speech/speak) so app needs no system TTS
