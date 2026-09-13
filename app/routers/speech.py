@@ -45,10 +45,11 @@ async def speak_text(payload: SpeakRequest):
     try:
         import edge_tts
         communicate = edge_tts.Communicate(text, voice, rate="-5%", pitch="+2Hz")
-        audio = b"".join(
-            chunk["audio"] async for chunk in communicate.stream()
-            if chunk["type"] == "audio"
-        )
+        parts = []
+        async for chunk in communicate.stream():
+            if chunk.get("type") == "audio":
+                parts.append(chunk["data"])
+        audio = b"".join(parts)
         if not audio:
             raise RuntimeError("empty audio")
         return StreamingResponse(io.BytesIO(audio), media_type="audio/mpeg")
