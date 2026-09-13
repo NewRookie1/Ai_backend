@@ -98,6 +98,7 @@ class AgentResponse(BaseModel):
     confidence: float
     requires_confirmation: bool = False
     response: str
+    detailed_response: Optional[str] = None
     detected_language: Optional[str] = None
     original_text: Optional[str] = None
     normalized_text: Optional[str] = None

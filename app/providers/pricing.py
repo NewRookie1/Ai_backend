@@ -42,7 +42,7 @@ Return JSON format:
     "suggested_price": <number>,
     "currency": "INR",
     "price_range": {{"min": <number>, "max": <number>}},
-    "reasoning": "<detailed explanation>",
+    "reasoning": "<detailed explanation, all prices in Indian Rupees with ₹ symbol, never $ or dollars>",
     "confidence": <0-1>,
     "is_estimate": <boolean>
 }}"""
@@ -61,7 +61,12 @@ Return JSON format:
             
             result = json.loads(response.choices[0].message.content)
             result["generated_at"] = datetime.utcnow().isoformat()
-            
+            # India-only: never show $ amounts to the user.
+            import re
+            if isinstance(result.get("reasoning"), str):
+                result["reasoning"] = re.sub(
+                    r"\$\s?(\d[\d,]*)", r"₹\1", result["reasoning"])
+            result["currency"] = "INR"
             return result
         except Exception as e:
             base_cost = (raw_material_cost or 0) + (labor_cost or 0)

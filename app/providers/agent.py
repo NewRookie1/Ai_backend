@@ -54,7 +54,7 @@ class AgentProvider:
         
         intent_result = self._detect_intent(normalized_text)
         
-        response_text = await self._generate_response(
+        voice_text, chat_text = await self._generate_response(
             intent=intent_result["intent"],
             text=normalized_text,
             user_language=user_language,
@@ -70,7 +70,8 @@ class AgentProvider:
             "entities": intent_result.get("entities", {}),
             "confidence": intent_result["confidence"],
             "requires_confirmation": intent_result.get("requires_confirmation", False),
-            "response": response_text,
+            "response": voice_text,
+            "detailed_response": chat_text,
             "original_text": transcript,
         }
     
@@ -88,7 +89,7 @@ class AgentProvider:
         
         intent_result = self._detect_intent(normalized_text)
         
-        response_text = await self._generate_response(
+        voice_text, chat_text = await self._generate_response(
             intent=intent_result["intent"],
             text=normalized_text,
             user_language=user_language,
@@ -104,7 +105,8 @@ class AgentProvider:
             "entities": intent_result.get("entities", {}),
             "confidence": intent_result["confidence"],
             "requires_confirmation": intent_result.get("requires_confirmation", False),
-            "response": response_text,
+            "response": voice_text,
+            "detailed_response": chat_text,
             "original_text": text,
         }
     
@@ -194,12 +196,38 @@ class AgentProvider:
         
         return actions_map.get(intent, [])
     
+    @staticmethod
+    def _inr(text: str) -> str:
+        """Safety net: LLM sometimes prices in dollars. This app is India-only:
+        turn $ amounts into ₹ amounts so chat/voice never say dollars."""
+        import re
+        text = re.sub(r"\$\s?(\d[\d,]*)", r"₹\1", text)
+        text = re.sub(r"(?i)\bUS\s?dollars?\b", "rupees", text)
+        text = re.sub(r"(?i)\b(\d[\d,]*)\s?dollars?\b", r"₹\1", text)
+        return text
+
+    @staticmethod
+    def _extract_json(raw: str) -> dict:
+        """Pull the first {...} JSON object out of model chatter."""
+        cleaned = raw.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`").strip()
+            if cleaned.lower().startswith("json"):
+                cleaned = cleaned[4:].strip()
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start < 0 or end <= start:
+            raise ValueError("no JSON object")
+        return json.loads(cleaned[start:end + 1])
+
     async def _generate_response(
         self,
         intent: str,
         text: str,
         user_language: str,
-    ) -> str:
+    ) -> tuple:
+        """Returns (voice, chat): voice = one short spoken sentence,
+        chat = properly formatted markdown shown in the chat bubble."""
         try:
             if user_language != "en":
                 lang_map = {
@@ -208,12 +236,12 @@ class AgentProvider:
                 }
                 lang_name = lang_map.get(user_language, user_language)
                 # STRICT: reply ONLY in the user's selected language.
-                lang_instruction = f" Respond ONLY in {lang_name}. Never switch languages."
+                lang_instruction = f" Write BOTH fields ONLY in {lang_name}. Never switch languages."
             else:
                 # STRICT: user picked English — always reply in English,
                 # even if they spoke with another accent or mixed words.
-                lang_instruction = " Respond ONLY in English. Never switch languages."
-            
+                lang_instruction = " Write BOTH fields ONLY in English. Never switch languages."
+
             response = chat_create(
                 self.client,
                 messages=[
@@ -221,51 +249,89 @@ class AgentProvider:
                         "You are the warm, friendly voice assistant of the Artisan AI "
                         "artisan business app. The user's command was already "
                         "understood and the app is performing the action. "
-                        "Reply with ONE short warm plain-text sentence (max 15 words) "
-                        "confirming what is happening, like a kind human helper. "
-                        "Soft tone, no shouting, no caps. "
-                        "No markdown, no lists, "
-                        "no formatting, no tutorials, no phone/computer how-tos. "
-                        f"{lang_instruction}".strip()
+                        f"{lang_instruction}".strip() +
+                        " Reply with a single JSON object and nothing else, "
+                        "with exactly these two keys: "
+                        "'voice' = ONE short warm plain-text sentence (max 15 words) "
+                        "confirming what is happening, no markdown; "
+                        "'chat' = properly formatted markdown for the chat bubble: "
+                        "a short bold heading plus 2-4 bullet points describing "
+                        "what happened and the next step (max 120 words). "
+                        "All prices in Indian Rupees with ₹ (never $ or dollars). "
+                        'Example: {"voice": "Opening your products.", '
+                        '"chat": "**Your Products**\\n\\n- Browse your full catalog\\n- Tap a card for details"}'
                     )},
                     {"role": "user", "content": f"Intent: {intent}\nUser said: {text}"},
                 ],
                 models=text_models(),
                 temperature=0.7,
-                max_tokens=256,
+                max_tokens=512,
             )
-            
-            return response.choices[0].message.content
+
+            raw = response.choices[0].message.content or ""
+            try:
+                data = self._extract_json(raw)
+                voice = str(data.get("voice") or "").strip()
+                chat = str(data.get("chat") or "").strip()
+                if voice and chat:
+                    return self._inr(voice), self._inr(chat)
+            except Exception:
+                pass
+            # Model didn't return JSON: use raw as voice, wrap as chat.
+            fallback_voice = raw.strip()[:200] or "Done."
+            fallback_voice = self._inr(fallback_voice)
+            return fallback_voice, fallback_voice
         except Exception:
             responses = {
-                'NAVIGATE_HOME': 'Opening home screen.',
-                'NAVIGATE_PRODUCTS': 'Opening your products.',
-                'NAVIGATE_ORDERS': 'Opening your orders.',
-                'NAVIGATE_MARKET': 'Opening market analysis.',
-                'NAVIGATE_PROFILE': 'Opening your profile.',
-                'NAVIGATE_SCANNER': 'Opening scanner. Point your camera at a product.',
-                'SCAN_PRODUCT': 'Opening scanner to scan your product.',
-                'IDENTIFY_PRODUCT': 'Analyzing the product...',
-                'CREATE_PRODUCT': 'Let me help you create a new product. First, take a photo.',
-                'VIEW_PRODUCTS': 'Here are your products.',
-                'VIEW_ORDERS': 'Here are your orders.',
-                'NEW_ORDERS': 'Checking for new orders...',
-                'SUGGEST_PRICE': 'Let me suggest a price for this product.',
-                'MARKET_ANALYSIS': 'Analyzing market data...',
-                'MARKET_TRENDS': 'Here are the current market trends.',
-                'PRODUCT_PERFORMANCE': 'Showing your product performance.',
-                'HELP': 'I can help you with: scanning products, managing your catalog, checking orders, market analysis, and pricing.',
-                'UNKNOWN': 'I am not sure what you want. Can you tell me more?',
+                'NAVIGATE_HOME': ('Opening home screen.',
+                                  '**Home**\n\n- You are on the home dashboard\n- Use quick actions below to continue'),
+                'NAVIGATE_PRODUCTS': ('Opening your products.',
+                                      '**Your Products**\n\n- Browse your full catalog\n- Tap any product for price and performance'),
+                'NAVIGATE_ORDERS': ('Opening your orders.',
+                                    '**Your Orders**\n\n- New, pending and past orders\n- Accept or update them from the list'),
+                'NAVIGATE_MARKET': ('Opening market analysis.',
+                                    '**Market Analysis**\n\n- Demand scores and trends\n- Check before you price a product'),
+                'NAVIGATE_PROFILE': ('Opening your profile.',
+                                     '**Profile**\n\n- Language, shop and payment settings\n- Switch seller/buyer mode here'),
+                'NAVIGATE_SCANNER': ('Opening scanner. Point your camera at a product.',
+                                     '**Scanner**\n\n- Point the camera at your product\n- Capture for instant AI analysis'),
+                'SCAN_PRODUCT': ('Opening scanner to scan your product.',
+                                 '**Scan Product**\n\n- Capture a clear photo\n- AI fills name, material and description'),
+                'IDENTIFY_PRODUCT': ('Analyzing the product...',
+                                     '**Analyzing…**\n\n- Reading material and craft type\n- Result appears in a moment'),
+                'CREATE_PRODUCT': ('Let me help you create a new product. First, take a photo.',
+                                   '**New Product**\n\n- Step 1: take a product photo\n- Step 2: review the AI-filled details\n- Step 3: save to your catalog'),
+                'VIEW_PRODUCTS': ('Here are your products.',
+                                  '**Your Products**\n\n- Full catalog below\n- Tap a card for details'),
+                'VIEW_ORDERS': ('Here are your orders.',
+                                '**Your Orders**\n\n- Latest orders first\n- Update status from each card'),
+                'NEW_ORDERS': ('Checking for new orders...',
+                               '**New Orders**\n\n- Pull down to refresh\n- Accept orders quickly to keep buyers happy'),
+                'SUGGEST_PRICE': ('Let me suggest a price for this product.',
+                                  '**Price Suggestion**\n\n- Enter material + labor cost\n- AI gives a range with reasoning'),
+                'MARKET_ANALYSIS': ('Analyzing market data...',
+                                    '**Market Analysis**\n\n- Demand and average prices\n- Recommendation for your category'),
+                'MARKET_TRENDS': ('Here are the current market trends.',
+                                  '**Market Trends**\n\n- What is selling now\n- Festive demand highlights'),
+                'PRODUCT_PERFORMANCE': ('Showing your product performance.',
+                                        '**Performance**\n\n- Views, orders and revenue\n- Focus on your top converter'),
+                'HELP': ('I can help with scanning, catalog, orders, market and pricing.',
+                         '**What I can do**\n\n- **Scan** products with the camera\n- **Manage** catalog and pricing\n- **Track** orders and market trends\n- Just speak or type a command'),
+                'UNKNOWN': ('I am not sure what you want. Can you tell me more?',
+                            '**Not sure**\n\n- Try: *“show my products”*\n- Try: *“scan product”*\n- Try: *“check new orders”*'),
             }
-            fallback = responses.get(intent, 'I am not sure what you want.')
+            voice, chat = responses.get(
+                intent, ('I am not sure what you want.', '**Not sure**\n\n- Please rephrase your request'))
             # The reply must be in the user's language even when the LLM
             # is unreachable: translate the canned reply best-effort.
             if user_language and user_language != "en":
                 try:
                     from .translation import TranslationProvider
                     translator = TranslationProvider()
-                    t = await translator.translate(fallback, user_language, "en")
-                    return t.get("translated_text") or fallback
+                    t = await translator.translate(chat, user_language, "en")
+                    chat = t.get("translated_text") or chat
+                    t2 = await translator.translate(voice, user_language, "en")
+                    voice = t2.get("translated_text") or voice
                 except Exception:
                     pass
-            return fallback
+            return voice, chat
