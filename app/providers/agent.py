@@ -24,6 +24,10 @@ class AgentProvider:
         'MARKET_TRENDS': ['trends', 'what is trending'],
         'PRODUCT_PERFORMANCE': ['performance', 'how are my products doing', 'best selling'],
         'HELP': ['help', 'what can you do', 'commands'],
+        'SELF_NAME': ['your name', 'ur name', 'who are you', 'who r u'],
+        'GREETING': ['hello', 'namaste', 'good morning', 'good afternoon'],
+        'THANKS': ['thank you', 'thanks'],
+        'BYE': ['goodbye', 'good bye', 'bye bye', 'see you'],
     }
     
     def __init__(self):
@@ -258,6 +262,9 @@ class AgentProvider:
                         "a short bold heading plus 2-4 bullet points describing "
                         "what happened and the next step (max 120 words). "
                         "All prices in Indian Rupees with ₹ (never $ or dollars). "
+                        "For UNKNOWN intent: echo the heard words, explain no "
+                        "command matched so nothing was done, and list 3 example "
+                        "commands. "
                         'Example: {"voice": "Opening your products.", '
                         '"chat": "**Your Products**\\n\\n- Browse your full catalog\\n- Tap a card for details"}'
                     )},
@@ -317,11 +324,31 @@ class AgentProvider:
                                         '**Performance**\n\n- Views, orders and revenue\n- Focus on your top converter'),
                 'HELP': ('I can help with scanning, catalog, orders, market and pricing.',
                          '**What I can do**\n\n- **Scan** products with the camera\n- **Manage** catalog and pricing\n- **Track** orders and market trends\n- Just speak or type a command'),
-                'UNKNOWN': ('I am not sure what you want. Can you tell me more?',
-                            '**Not sure**\n\n- Try: *“show my products”*\n- Try: *“scan product”*\n- Try: *“check new orders”*'),
+                'SELF_NAME': ("Meet Ai Sathi, the shop helper.",
+                              '**Ai Sathi**\n\n- The voice helper for this shop app\n- Ask to show products, scan, or check orders'),
+                'GREETING': ("Hello! What shall we do today?",
+                             '**Hello!**\n\n- Try: *show my products*\n- Try: *scan product*\n- Try: *check new orders*'),
+                'THANKS': ("Anytime! Happy to help with the shop.",
+                           '**You are welcome**\n\n- Anything else for the shop today?'),
+                'BYE': ("Bye! The shop helper stays right here.",
+                        '**Bye!**\n\n- Come back any time for products, orders or pricing'),
+                'UNKNOWN': (None, None),
             }
-            voice, chat = responses.get(
-                intent, ('I am not sure what you want.', '**Not sure**\n\n- Please rephrase your request'))
+            if intent == 'UNKNOWN':
+                heard = (text or '').strip() or '...'
+                if len(heard) > 80:
+                    heard = heard[:80] + '…'
+                voice = (f'Hmm, {heard} — no matching command, '
+                         'so nothing was done. Try show my products, '
+                         'scan product, or check new orders.')
+                chat = (f'**Hmm, that didn\'t come through**\n\n'
+                        f'- Heard: “{heard}”\n'
+                        '- Problem: no known command matches those words, so nothing was done\n'
+                        '- Try: *show my products* · *scan product* · *check new orders*')
+            else:
+                voice, chat = responses.get(
+                    intent, ('Hmm, that did not come through.',
+                             '**Hmm**\n\n- Please rephrase your request'))
             # The reply must be in the user's language even when the LLM
             # is unreachable: translate the canned reply best-effort.
             if user_language and user_language != "en":
