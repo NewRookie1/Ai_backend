@@ -15,6 +15,10 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+
+class RoleUpdateRequest(BaseModel):
+    role: str
+
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
@@ -72,4 +76,19 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
+    return UserResponse.model_validate(current_user)
+
+@router.put("/role", response_model=UserResponse)
+async def switch_role(
+    payload: RoleUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Seller ↔ buyer switching without re-registering."""
+    role = (payload.role or "").lower()
+    if role not in ("artisan", "buyer"):
+        raise HTTPException(status_code=400, detail="Role must be artisan or buyer")
+    current_user.role = role
+    db.commit()
+    db.refresh(current_user)
     return UserResponse.model_validate(current_user)
