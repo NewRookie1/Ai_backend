@@ -119,3 +119,63 @@ class MarketAnalysisResponse(BaseModel):
     recommendation: Optional[str] = None
     confidence: float
     analyzed_at: datetime
+
+
+# ---------------- Community ----------------
+
+class CollectiveOrderResponse(BaseModel):
+    id: str
+    title: str
+    product_name: str
+    price: float
+    target_qty: int
+    joined_qty: int
+    ends_in: Optional[str] = None
+    joined: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class CollabPostCreate(BaseModel):
+    title: str
+    type: str = "Need help"
+    description: Optional[str] = ""
+
+
+class CollabPostResponse(BaseModel):
+    id: str
+    title: str
+    type: str
+    description: Optional[str] = ""
+    author: Optional[str] = ""
+    location: Optional[str] = ""
+    interested_count: int = 0
+    interested: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class SupportRegisterRequest(BaseModel):
+    scheme: Optional[str] = "general"
+
+
+class SupportStatusResponse(BaseModel):
+    registered: bool
+    scheme: Optional[str] = None
+    status: Optional[str] = None
+
+
+class DeliveryPreferenceRequest(BaseModel):
+    method: str = "standard"
+    open_box: bool = False
+
+
+class DeliveryPreferenceResponse(BaseModel):
+    order_id: str
+    method: str
+    open_box: bool
+
+    class Config:
+        from_attributes = True

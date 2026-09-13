@@ -116,3 +116,85 @@ class ConversationMessage(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     
     conversation = relationship("Conversation", back_populates="messages")
+
+
+# ---------------------------------------------------------------------------
+# Community: collective orders, collaboration, seller support, delivery.
+# Global catalog rows (no user FK) + per-user join/interest rows.
+# ---------------------------------------------------------------------------
+
+class CollectiveOrder(Base):
+    __tablename__ = "collective_orders"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    title = Column(String, nullable=False)
+    product_name = Column(String, nullable=False)
+    price = Column(Float, nullable=False, default=0)
+    target_qty = Column(Integer, nullable=False, default=100)
+    joined_qty = Column(Integer, nullable=False, default=0)
+    ends_in = Column(String, nullable=True, default="7 days")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    memberships = relationship("CollectiveMembership", back_populates="collective",
+                               cascade="all, delete-orphan")
+
+
+class CollectiveMembership(Base):
+    __tablename__ = "collective_memberships"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    collective_id = Column(String, ForeignKey("collective_orders.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    collective = relationship("CollectiveOrder", back_populates="memberships")
+
+
+class CollabPost(Base):
+    __tablename__ = "collab_posts"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=True)
+    title = Column(String, nullable=False)
+    type = Column(String, nullable=False, default="Need help")
+    description = Column(Text, nullable=True, default="")
+    author = Column(String, nullable=True, default="Artisan")
+    location = Column(String, nullable=True, default="")
+    interested_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    interests = relationship("CollabInterest", back_populates="post",
+                             cascade="all, delete-orphan")
+
+
+class CollabInterest(Base):
+    __tablename__ = "collab_interests"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    post_id = Column(String, ForeignKey("collab_posts.id"), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    post = relationship("CollabPost", back_populates="interests")
+
+
+class SupportRegistration(Base):
+    __tablename__ = "support_registrations"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, unique=True)
+    scheme = Column(String, nullable=True, default="general")
+    status = Column(String, nullable=False, default="registered")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class DeliveryPreference(Base):
+    __tablename__ = "delivery_preferences"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    order_id = Column(String, nullable=False)
+    method = Column(String, nullable=False, default="standard")
+    open_box = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
