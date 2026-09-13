@@ -39,13 +39,18 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == user_data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
+    role = (user_data.role or "artisan").lower()
+    if role not in ("artisan", "buyer"):
+        raise HTTPException(status_code=400, detail="Role must be artisan or buyer")
+
     user = User(
         name=user_data.name,
         email=user_data.email,
         phone=user_data.phone,
         hashed_password=get_password_hash(user_data.password),
         preferred_language=user_data.preferred_language,
+        role=role,
         shop_name=user_data.shop_name,
         location=user_data.location,
     )

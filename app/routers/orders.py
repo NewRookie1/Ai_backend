@@ -5,6 +5,7 @@ from ..core.database import get_db
 from ..routers.auth import get_current_user
 from ..models.models import User, Order
 from ..schemas.schemas import OrderResponse
+from ..routers.marketplace import _order_to_response
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -20,7 +21,7 @@ async def get_orders(
         query = query.filter(Order.status == status)
     
     orders = query.order_by(Order.created_at.desc()).all()
-    return [OrderResponse.model_validate(o) for o in orders]
+    return [_order_to_response(db, o) for o in orders]
 
 @router.get("/{order_id}", response_model=OrderResponse)
 async def get_order(
@@ -36,7 +37,7 @@ async def get_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    return OrderResponse.model_validate(order)
+    return _order_to_response(db, order)
 
 @router.put("/{order_id}", response_model=OrderResponse)
 async def update_order(
@@ -61,4 +62,4 @@ async def update_order(
     db.commit()
     db.refresh(order)
     
-    return OrderResponse.model_validate(order)
+    return _order_to_response(db, order)

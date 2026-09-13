@@ -17,13 +17,19 @@ class User(Base):
     phone = Column(String, nullable=True)
     hashed_password = Column(String, nullable=False)
     preferred_language = Column(String, default="en")
+    role = Column(String, default="artisan")
     shop_name = Column(String, nullable=True)
     location = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     products = relationship("Product", back_populates="user")
-    orders = relationship("Order", back_populates="user")
+    # Seller side: orders placed ON this user's products.
+    orders = relationship("Order", back_populates="user",
+                          foreign_keys="Order.user_id")
+    # Buyer side: orders this user placed across sellers.
+    purchases = relationship("Order", back_populates="buyer",
+                             foreign_keys="Order.buyer_id")
 
 class Product(Base):
     __tablename__ = "products"
@@ -73,12 +79,16 @@ class Order(Base):
     buyer_email = Column(String, nullable=True)
     total_amount = Column(Float, nullable=False)
     status = Column(String, default="new")
+    buyer_id = Column(String, ForeignKey("users.id"), nullable=True)
     shipping_address = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    user = relationship("User", back_populates="orders")
+    user = relationship("User", back_populates="orders",
+                        foreign_keys=[user_id])
+    buyer = relationship("User", back_populates="purchases",
+                         foreign_keys=[buyer_id])
     items = relationship("OrderItem", back_populates="order")
 
 class OrderItem(Base):

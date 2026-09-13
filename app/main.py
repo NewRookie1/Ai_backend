@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from .core.config import settings
 from .core.database import engine, Base
-from .routers import auth, speech, translation, image, products, orders, voice, market, community
+from .routers import auth, speech, translation, image, products, orders, voice, market, community, marketplace
 
 logger = logging.getLogger("artisan_ai")
 
@@ -30,6 +30,7 @@ app.include_router(orders.router)
 app.include_router(voice.router)
 app.include_router(market.router)
 app.include_router(community.router)
+app.include_router(marketplace.router)
 
 @app.on_event("startup")
 async def startup():

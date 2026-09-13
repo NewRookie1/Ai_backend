@@ -7,6 +7,7 @@ class UserBase(BaseModel):
     email: str
     phone: Optional[str] = None
     preferred_language: str = "en"
+    role: str = "artisan"
     shop_name: Optional[str] = None
     location: Optional[str] = None
 
@@ -69,6 +70,7 @@ class OrderResponse(BaseModel):
     user_id: str
     buyer_name: str
     buyer_phone: Optional[str] = None
+    buyer_id: Optional[str] = None
     total_amount: float
     status: str
     items: List[OrderItemResponse]
