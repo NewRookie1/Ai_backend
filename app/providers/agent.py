@@ -201,26 +201,30 @@ class AgentProvider:
         user_language: str,
     ) -> str:
         try:
-            lang_instruction = ""
             if user_language != "en":
-                from .translation import TranslationProvider
-                translator = TranslationProvider()
                 lang_map = {
                     'mr': 'Marathi', 'hi': 'Hindi', 'gu': 'Gujarati', 'bn': 'Bengali',
                     'ta': 'Tamil', 'te': 'Telugu', 'kn': 'Kannada', 'ml': 'Malayalam', 'pa': 'Punjabi',
                 }
                 lang_name = lang_map.get(user_language, user_language)
-                lang_instruction = f" Respond in {lang_name} language."
+                # STRICT: reply ONLY in the user's selected language.
+                lang_instruction = f" Respond ONLY in {lang_name}. Never switch languages."
+            else:
+                # STRICT: user picked English — always reply in English,
+                # even if they spoke with another accent or mixed words.
+                lang_instruction = " Respond ONLY in English. Never switch languages."
             
             response = chat_create(
                 self.client,
                 messages=[
                     {"role": "system", "content": (
-                        "You are the built-in voice assistant of the Artisan AI "
+                        "You are the warm, friendly voice assistant of the Artisan AI "
                         "artisan business app. The user's command was already "
                         "understood and the app is performing the action. "
-                        "Reply with ONE short plain-text sentence (max 15 words) "
-                        "confirming what is happening. No markdown, no lists, "
+                        "Reply with ONE short warm plain-text sentence (max 15 words) "
+                        "confirming what is happening, like a kind human helper. "
+                        "Soft tone, no shouting, no caps. "
+                        "No markdown, no lists, "
                         "no formatting, no tutorials, no phone/computer how-tos. "
                         f"{lang_instruction}".strip()
                     )},
